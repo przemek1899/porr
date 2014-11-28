@@ -4,7 +4,6 @@
 #include "matrixGenerator.h"
 
 const double A_MAX_VALUE = 10.0;
-const double B_MAX_VALUE = 10.0*N;
 
 zmp getAlfa(zmp m[N][N]){
     // find the largest element na przekątnej
@@ -20,14 +19,14 @@ zmp getAlfa(zmp m[N][N]){
     return 1.0/max;
 }
 
-void generateRandomVector(zmp* b){
+void generateRandomVector(zmp* vector, zmp a, zmp b){
     gsl_rng * generator;
     generator = gsl_rng_alloc(gsl_rng_default);
     gsl_rng_set (generator, N); //ustawienie ziarna
 
     int x;
     for(x=0; x<N; x++){
-        b[x] = B_MAX_VALUE * ((2*gsl_rng_uniform(generator))-1);
+        vector[x] = (b-a) * gsl_rng_uniform(generator) + a; //B_MAX_VALUE * ((2*gsl_rng_uniform(generator))-1);
     }
 
     gsl_rng_free(generator);

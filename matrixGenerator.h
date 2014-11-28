@@ -2,7 +2,7 @@
 #ifndef MATRIXGENERATOR_H
 #define MATRIXGENERATOR_H
 
-#define N 10 /*macierz o rozmiarze NxN*/
+#define N 100 /*macierz o rozmiarze NxN*/
 const double A_MAX_VALUE;
 const double B_MAX_VALUE;
 
@@ -13,7 +13,7 @@ typedef zmp matrix[N][N];
 
 zmp getAlfa(zmp m[N][N]);
 
-void generateRandomVector(zmp* b);
+void generateRandomVector(zmp* vector, zmp a, zmp b);
 
 void generateRandomMatrix(zmp m[N][N]);
 void getSymmetricMatrix(zmp m[N][N]);

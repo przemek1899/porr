@@ -4,6 +4,8 @@
 
 int main(){
 
+    const double B_MAX_VALUE = 10.0*N;
+
     printf("projekt PORR\n");
     matrix A;
     getRichardsonMatrix(A);
@@ -16,25 +18,30 @@ int main(){
         printf("\n");
     }
 
-    zmp* b;
-    generateRandomVector(b);
+    zmp b[N];
+    generateRandomVector(b, -B_MAX_VALUE, B_MAX_VALUE);
 
-    zmp* x;
-    // i teraz co? zerować wektor x czy wypełniać go losowymi liczbami?
-
-    int k=1000; //liczba krokow
-    for(i=0; i<k; i++){
-        richardsonIteration(x, ALFA, A, b);
-    }
+    zmp x[N];
+    generateRandomVector(x, -1.0, 1.0);
 
     clock_t start_t, end_t, total_t;
 
     start_t = clock();
 
-    //tu jest miejsce na Twój kod
+    int k=100; //liczba krokow
+    for(i=0; i<k; i++){
+        richardsonIteration(x, ALFA, A, b);
+    }
 
     end_t = clock();
     total_t = (double) (start_t - end_t) / CLOCKS_PER_SEC;
+
+    zmp y_test[N]; //do sprawdzenia wynikow
+    multiplyMatrixVector(A, x, y_test);
+
+    for(i=0; i<N; i++){
+        printf("%f %f %f\n", b[i]-y_test[i], b[i], y_test[i]);
+    }
 
     return 0;
 }
