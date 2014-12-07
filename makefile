@@ -5,4 +5,4 @@ main.o: main.c
 	gcc -c main.c -o main.o
 
 matGen.o: matrixGenerator.c
-	gcc -c matrixGenerator.c -o matGen.o
+	gcc -c -O3 -msse3 -ffast-math -ftree-vectorizer-verbose=10 matrixGenerator.c -o matGen.o

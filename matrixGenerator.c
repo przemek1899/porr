@@ -1,7 +1,9 @@
 #include <gsl/gsl_rng.h>
 #include <math.h>
 #include <float.h>
-#include "matrixGenerator.h"
+#include <time.h>
+#include <omp.h>
+#include "matrixGeneratorOMP.h"
 
 const double A_MAX_VALUE = 10.0;
 
@@ -19,10 +21,12 @@ zmp getAlfa(zmp m[N][N]){
     return 1.0/max;
 }
 
-void generateRandomVector(zmp* vector, zmp a, zmp b){
+void generateRandomVector(zmp vector[N], zmp a, zmp b){
     gsl_rng * generator;
     generator = gsl_rng_alloc(gsl_rng_default);
-    gsl_rng_set (generator, N); //ustawienie ziarna
+
+    time_t t;
+    gsl_rng_set (generator, (unsigned) time(&t) ); //ustawienie ziarna
 
     int x;
     for(x=0; x<N; x++){
@@ -33,59 +37,82 @@ void generateRandomVector(zmp* vector, zmp a, zmp b){
     return;
 }
 
-void generateRandomMatrix(zmp m[N][N]){
+void getRichardsonMatrix(zmp m[N][N], zmp symmetric[N][N]){
 
+    double start_t, end_t;
+    double total_t;
+
+    //generate random matrix
+    time_t t;
     gsl_rng * generator;
     generator = gsl_rng_alloc(gsl_rng_default);
-    gsl_rng_set (generator, N*N); //ustawienie ziarna
+    gsl_rng_set (generator, (unsigned) time(&t)); //ustawienie ziarna
 
     int x,y;//x - wiersze, y - kolumny
-
     for(x=0; x<N; x++){
         for(y=0; y<N; y++){
             m[x][y] =  (2*gsl_rng_uniform(generator))-1;
         }
     }
     gsl_rng_free(generator);
-    return;
-}
 
-void getSymmetricMatrix(zmp m[N][N]){ //zmp (*m)[N]
 
-    int x,y; //x - wiersze, y - kolumny
+    //get symmetric matrix
     int k;
-    matrix symmetric;
-    //zerowanie macierzy
     for(x=0; x<N; x++){
         for(y=0; y<N; y++){
             symmetric[x][y] = 0.0;
         }
     }
+    /*
+    omp_set_num_threads(2);
 
-    //tutaj będzie można zoptymalizować algorytm ponieważ w pętli niektóre mnożenia elementów macierzy powatarzają się
-    //do sprawdzenia poniższa metoda
-
+    start_t = omp_get_wtime();
+    #pragma omp parallel for private(x,y,k)
     for(x=0; x<N; x++){
         for(y=0; y<N; y++){
-            for(k=0; k<N; k++){
-                symmetric[x][y] += m[x][k]*m[y][k];
-               /* if (x==5){
-                    printf("poj %f %f %f %f\n", m[x][k]*m[y][k], m[x][k], m[y][k], symmetric[x][y]);
-                }*/
-            }
+            zmp suma = 0.0;
+            for(k=0; k<N; k++)
+                suma += m[x][k]*m[y][k];
+            symmetric[x][y] = suma;
         }
     }
+    end_t = omp_get_wtime();
+    total_t = (end_t - start_t);
+    printf("\nczas generowania macierzy symetrycznej %f\n", total_t);
+
     //przepisywanie do macierzy m
     for(x=0; x<N; x++){
         for(y=0; y<N; y++){
             m[x][y] = symmetric[x][y];
         }
+    }*/
+
+    omp_set_num_threads(2);
+
+   // start_t = omp_get_wtime();
+    #pragma omp parallel for private(x,y,k)
+    //oszczedna wersja macierzy sym
+    //elementy na głównej przekątnej możnaby było pominąć ale je mnożymy, ponieważ wtedy zadanie jest lepiej uwarunkowane numerycznie - dowiedzione empirycznie
+    for(x=0; x<N; x++){
+        for(y=0; y<x+1; y++){
+            zmp suma = 0.0;
+            for(k=0; k<N; k++)
+                suma += m[x][k]*m[y][k];
+            symmetric[x][y] = suma;
+        }
     }
-    return;
-}
 
-void getDiagonalMatrix(zmp m[][N]){ //zmp (*m)[N]
+    //przepisywanie do macierzy
+    for(x=0; x<N; x++){
+        for(y=0; y<x+1; y++){
+            m[x][y] = symmetric[x][y];
+            m[y][x] = symmetric[x][y];
+        }
+    }
 
+
+    // get dominant matrix
     int i,j;
     for(i=0; i<N; i++){
         double sum = (zmp)1;
@@ -99,12 +126,8 @@ void getDiagonalMatrix(zmp m[][N]){ //zmp (*m)[N]
         else
             m[i][i] = max;
     }
-    return;
-}
 
-void normalizeMatrix(zmp m[N][N]){
-    //find the largest abs element in the matrix
-    int i,j;
+    //normalize matrix
     double max = -1.0;
     for(i=0; i<N; i++){
         for(j=0; j<N; j++){
@@ -119,31 +142,28 @@ void normalizeMatrix(zmp m[N][N]){
             m[i][j] /= divider;
         }
     }
+
     return;
 }
 
-
-void getRichardsonMatrix(zmp m[N][N]){
-    generateRandomMatrix(m);
+zmp getError(zmp A[N][N], zmp x[N], zmp b[N]){
+    zmp error = 0.0;
     int i,j;
-    for(i=0; i<N; i++){
+    for(i=0;i<N; i++){
+        zmp suma = 0.0;
         for(j=0; j<N; j++){
-            printf("%f ", m[i][j]);
+            suma += A[i][j] * x[j];
         }
-        printf("\n");
+        error += pow((suma - b[i]),2.0);
     }
-    printf("\n");
-    getSymmetricMatrix(m);
-    getDiagonalMatrix(m);
-    normalizeMatrix(m);
-    return;
+    return error;
 }
 
-void multiplyMatrixVector(zmp A[N][N], zmp* x, zmp* y) // macierz A o wymiarach NxN, wektor x o długości N
+void multiplyMatrixVector(zmp A[N][N], zmp x[N], zmp y[N])
 {
     int i,j;
     for(i=0;i<N; i++){
-        zmp suma = 0.0f;
+        zmp suma = 0.0;
         for(j=0; j<N; j++){
             suma += A[i][j] * x[j];
         }
@@ -152,35 +172,5 @@ void multiplyMatrixVector(zmp A[N][N], zmp* x, zmp* y) // macierz A o wymiarach 
     return;
 }
 
-/*
-  metoda subtractVectors odejmuje od wektora a wektor b - wynik zapisuje w wektorze a
-  */
-void subtractVectors(zmp * a, zmp* b, int length){
-    int i;
-    for (i=0; i<length; i++){
-        a[i] -= b[i];
-    }
-    return;
-}
-
-/*
-  metoda multiplyVectorByScalar zapisuje wynik w wektorze a
-  */
-void multiplyVectorByScalar(zmp* a, int length, zmp s){
-    int i;
-    for(i=0; i<length; i++){
-        a[i] *= s;
-    }
-    return;
-}
-
-richardsonIteration(zmp* x, zmp alfa, zmp A[N][N], c_zmp* b){
-    zmp Ax[N];
-    multiplyMatrixVector(A, x, Ax);
-    subtractVectors(Ax, b, N);
-    multiplyVectorByScalar(Ax, N, alfa);
-    subtractVectors(x, Ax, N);
-    return;
-}
 
 
